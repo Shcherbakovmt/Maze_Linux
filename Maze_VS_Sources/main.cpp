@@ -10,6 +10,7 @@
 #include "structures.cpp"
 #include "elements.h"
 #include "Maze.h"
+#include <optional>
 
 using namespace sf;
 
@@ -37,6 +38,13 @@ int main()
 
     while (window.isOpen())
     {
+        while (const std::optional event = window.pollEvent())
+        {
+            if (event->is<sf::Event::Closed>())
+                window.close();
+        }
+
+
         labirint.turn(text, window);
 
     }

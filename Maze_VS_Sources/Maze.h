@@ -89,6 +89,11 @@ public:
     void Button_Pressed(sf::RenderWindow& window, sf::Text& text)
 
     {
+                        while (const std::optional event = window.pollEvent())
+        {
+            if (event->is<sf::Event::Closed>())
+                window.close();
+        }
         sf::Vector2i MousePosition = sf::Mouse::getPosition(window);
         if (MousePosition.x > window.getSize().x - 350 and
             MousePosition.y > window.getSize().y - 390 and
@@ -115,6 +120,12 @@ public:
         bool trig = 0;
         while (trig == 0)
         {
+            while (const std::optional event = window.pollEvent())
+            {
+                if (event->is<sf::Event::Closed>())
+                    window.close();
+            }
+
             Button_Pressed(window, text); // ����� �� ������ �� ������������ �������
             sf::Vector2i MousePosition = sf::Mouse::getPosition(window);
             if (window.getSize().x - scale * 160.f > MousePosition.x and window.getSize().x - scale * 9 * 160.f < MousePosition.x and
