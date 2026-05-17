@@ -2,7 +2,7 @@
 
 elements::elements()
 {
-	complete_river = new point[64]; // финальная река
+	complete_river = new point[64]; // ГґГЁГ­Г Г«ГјГ­Г Гї Г°ГҐГЄГ 
 }
 
 elements::~elements()

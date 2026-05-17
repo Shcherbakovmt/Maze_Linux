@@ -8,8 +8,8 @@ public:
     point medbat;
     point arsenal;
     point u_mouth;
-    point pit1, pit2, pit3, bum1, bum2, bum3; // по умолчанию два бума
-    point* complete_river; // финальная река
+    point pit1, pit2, pit3, bum1, bum2, bum3; // ГЇГ® ГіГ¬Г®Г«Г·Г Г­ГЁГѕ Г¤ГўГ  ГЎГіГ¬Г 
+    point* complete_river; // ГґГЁГ­Г Г«ГјГ­Г Гї Г°ГҐГЄГ 
     char** lines;
     crocodile croc;
     elements();

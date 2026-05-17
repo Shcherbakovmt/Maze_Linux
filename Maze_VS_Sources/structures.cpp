@@ -1,4 +1,7 @@
-#pragma once
+// structures.cpp — определения структур данных игры
+// Подключается как заголовочный файл через #include (нестандартная практика)
+#ifndef STRUCTURES_CPP_INCLUDED
+#define STRUCTURES_CPP_INCLUDED
 #include <iostream>
 #include <time.h>
 #include <locale.h>
@@ -55,3 +58,5 @@ using std::to_string;
 
 
 
+
+#endif // STRUCTURES_CPP_INCLUDED

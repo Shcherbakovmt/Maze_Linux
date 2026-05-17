@@ -54,15 +54,15 @@ public:
         {
             for (int j = 0; j < 10; j++)
             {
-                unknown[i][j].loadFromFile("Textures/Unknown.png");
+                (void)unknown[i][j].loadFromFile("Textures/Unknown.png");
             }
         }
         for (int i = 0; i < 10; i++)
         {
-            unknown[0][i].loadFromFile("Textures/Wall.png");
-            unknown[9][i].loadFromFile("Textures/Wall.png");
-            unknown[i][0].loadFromFile("Textures/Wall.png");
-            unknown[i][9].loadFromFile("Textures/Wall.png");
+            (void)unknown[0][i].loadFromFile("Textures/Wall.png");
+            (void)unknown[9][i].loadFromFile("Textures/Wall.png");
+            (void)unknown[i][0].loadFromFile("Textures/Wall.png");
+            (void)unknown[i][9].loadFromFile("Textures/Wall.png");
         }
         unknown_created = 1;
         return unknown;
@@ -87,18 +87,16 @@ public:
     }
 
     void Button_Pressed(sf::RenderWindow& window, sf::Text& text)
-
     {
-                        while (const std::optional event = window.pollEvent())
-        {
-            if (event->is<sf::Event::Closed>())
-                window.close();
-        }
+        // Не вызываем pollEvent здесь — это "съедало" бы TextEntered/KeyPressed события
+        // у вызывающих функций. Closed обрабатывается в их собственных циклах pollEvent.
         sf::Vector2i MousePosition = sf::Mouse::getPosition(window);
-        if (MousePosition.x > window.getSize().x - 350 and
-            MousePosition.y > window.getSize().y - 390 and
-            MousePosition.x < window.getSize().x - 350 + 290 and
-            MousePosition.y < window.getSize().y - 390 + 150)
+        int winX = static_cast<int>(window.getSize().x);
+        int winY = static_cast<int>(window.getSize().y);
+        if (MousePosition.x > winX - 350 and
+            MousePosition.y > winY - 390 and
+            MousePosition.x < winX - 350 + 290 and
+            MousePosition.y < winY - 390 + 150)
         {
             if (sf::Mouse::isButtonPressed(sf::Mouse::Button::Left))
             {
@@ -194,37 +192,31 @@ public:
         window.draw(Croc_Sprite);
     }
 
-    void WindowClearDrawDisplay(sf::RenderWindow& window, sf::Text& text)
+    // Вспомогательная функция: обрезает текст до последних max_lines строк
+    void trim_text_lines(sf::Text& text, int max_lines)
     {
-
         string s = text.getString();
-        string s_new = "";
         int count_lines = 0;
-        for (int i = 0; i < s.length(); i++)
-        {
-            if (s[i] == '\n')
-            {
-                count_lines += 1;
-            }
-        }
-        if (count_lines > 15)
-        {
-            int line_number = 0;
-            for (int i = 0; i < s.length(); i++)
-            {
-                if (s[i] == '\n')
-                {
-                    line_number += 1;
-                }
-                if (line_number >= count_lines - 15)
-                {
-                    s_new += s[i];
-                }
+        for (char c : s)
+            if (c == '\n') count_lines++;
 
+        if (count_lines > max_lines)
+        {
+            string s_new = "";
+            int line_number = 0;
+            for (char c : s)
+            {
+                if (c == '\n') line_number++;
+                if (line_number >= count_lines - max_lines)
+                    s_new += c;
             }
             text.setString(s_new);
         }
+    }
 
+    void WindowClearDrawDisplay(sf::RenderWindow& window, sf::Text& text)
+    {
+        trim_text_lines(text, 15);
 
         sf::Sprite BackgroundSprite(background);
         BackgroundSprite.setScale({ window.getSize().x / 160 * 1.f ,window.getSize().y / 160 * 1.f }); // size_x = scale * 160
@@ -248,34 +240,8 @@ public:
 
     void WindowClearDrawDisplay(sf::RenderWindow& window, sf::Text& text, sf::Sprite& spr)
     {
+        trim_text_lines(text, 15);
 
-        string s = text.getString();
-        string s_new = "";
-        int count_lines = 0;
-        for (int i = 0; i < s.length(); i++)
-        {
-            if (s[i] == '\n')
-            {
-                count_lines += 1;
-            }
-        }
-        if (count_lines > 15)
-        {
-            int line_number = 0;
-            for (int i = 0; i < s.length(); i++)
-            {
-                if (s[i] == '\n')
-                {
-                    line_number += 1;
-                }
-                if (line_number >= count_lines - 15)
-                {
-                    s_new += s[i];
-                }
-
-            }
-            text.setString(s_new);
-        }
         sf::Sprite BackgroundSprite(background);
         BackgroundSprite.setScale({ window.getSize().x / 160 * 1.f ,window.getSize().y / 160 * 1.f }); // size_x = scale * 160
 
@@ -285,9 +251,6 @@ public:
         ButtonText.setString("Do you want to \nsee the maze?");
         ButtonText.setFillColor(sf::Color::Black);
         ButtonText.setPosition({ window.getSize().x - 350.f, window.getSize().y - 390.f });
-
-
-
 
         window.clear();
         window.draw(BackgroundSprite);
@@ -320,69 +283,69 @@ public:
 
                 if (lines[i][j] == 'c' or lines[i][j] == 'E')
                 {
-                    textures[i][j].loadFromFile("Textures/Planks.png");
+                    (void)textures[i][j].loadFromFile("Textures/Planks.png");
                     continue;
                 }
                 if (lines[i][j] == 'r')
                 {
-                    textures[i][j].loadFromFile("Textures/Water.png", false, sf::IntRect({ 0, 0 }, { 160, 160 }));
+                    (void)textures[i][j].loadFromFile("Textures/Water.png", false, sf::IntRect({ 0, 0 }, { 160, 160 }));
                     continue;
 
                 }
                 if (lines[i][j] == 's')
                 {
-                    textures[i][j].loadFromFile("Textures/Moss.png");
+                    (void)textures[i][j].loadFromFile("Textures/Moss.png");
                     continue;
                 }
                 if (lines[i][j] == 'A')
                 {
-                    textures[i][j].loadFromFile("Textures/Arsenal.png");
+                    (void)textures[i][j].loadFromFile("Textures/Arsenal.png");
                     continue;
                 }
                 if (lines[i][j] == 'M')
                 {
-                    textures[i][j].loadFromFile("Textures/MedUnit.png");
+                    (void)textures[i][j].loadFromFile("Textures/MedUnit.png");
                     continue;
                 }
                 if (lines[i][j] == 'w')
                 {
-                    textures[i][j].loadFromFile("Textures/Wall.png");
+                    (void)textures[i][j].loadFromFile("Textures/Wall.png");
                     continue;
                 }
                 if (lines[i][j] == 'b')
                 {
-                    textures[i][j].loadFromFile("Textures/Boom.png");
+                    (void)textures[i][j].loadFromFile("Textures/Boom.png");
                     continue;
                 }
                 if (lines[i][j] == '1')
                 {
-                    textures[i][j].loadFromFile("Textures/Pit.png", false, sf::IntRect({ 0, 0 }, { 160, 160 }));
+                    (void)textures[i][j].loadFromFile("Textures/Pit.png", false, sf::IntRect({ 0, 0 }, { 160, 160 }));
                     continue;
                 }
                 if (lines[i][j] == '2')
                 {
-                    textures[i][j].loadFromFile("Textures/Pit.png", false, sf::IntRect({ 0, 160 }, { 160, 320 }));
+                    (void)textures[i][j].loadFromFile("Textures/Pit.png", false, sf::IntRect({ 0, 160 }, { 160, 320 }));
                     continue;
                 }
                 if (lines[i][j] == '3')
                 {
-                    textures[i][j].loadFromFile("Textures/Pit.png", false, sf::IntRect({ 0, 320 }, { 160, 480 }));
+                    (void)textures[i][j].loadFromFile("Textures/Pit.png", false, sf::IntRect({ 0, 320 }, { 160, 480 }));
                     continue;
                 }
                 if (lines[i][j] == 'u')
                 {
-                    textures[i][j].loadFromFile("Textures/Lily.png");
+                    (void)textures[i][j].loadFromFile("Textures/Lily.png");
                     continue;
                 }
                 else
                 {
-                    textures[i][j].loadFromFile("Textures/Dirt.png");
+                    (void)textures[i][j].loadFromFile("Textures/Dirt.png");
                     continue;
                 }
             }
         } // 
         TexturesIsDone = 1;
-        TreasureTexture.loadFromFile("Textures/Treasure.png");
+        (void)TreasureTexture.loadFromFile("Textures/Treasure.png");
         return textures;
     }
 
@@ -400,7 +363,7 @@ public:
         text.setString(text.getString() + "Enter the player's name\n");
         WindowClearDrawDisplay(window, text);
 
-        pl.texture.loadFromFile(filename);
+        (void)pl.texture.loadFromFile(filename);
 
         pl.name = getCommandString(window, text);
         pl.id = players.size();
@@ -416,8 +379,8 @@ public:
 
         int count_of_swamp = 0;
         crocodile croc;
-        croc.dead_text.loadFromFile("Textures/DeadCrocodile.png");
-        croc.alive_text.loadFromFile("Textures/Crocodile.png");
+        (void)croc.dead_text.loadFromFile("Textures/DeadCrocodile.png");
+        (void)croc.alive_text.loadFromFile("Textures/Crocodile.png");
         point* swamp_points = new point[64];
         for (int i = 1; i <= 8; i++) // ������ ������ ���� ����� ������, ����� ����� �������� ������� ���� �� ��� ��� ����� ��� ������� ��������
         {
@@ -515,7 +478,7 @@ public:
         }
         return trig;
     }
-    int is_along_border(char** lines, point p)
+    int is_along_border(char** /*lines*/, point p)
     {
         if ((p.j + 1 > 8 and p.i - 1 < 1) or (p.j + 1 > 8 and p.i + 1 > 8) or (p.j - 1 < 1 and p.i - 1 < 1) or (p.j - 1 < 1 and p.i + 1 > 8)) return 10; // ���� ����
 
@@ -581,7 +544,6 @@ public:
     }
     int number_of_land(char** lines, point* arr_of_p, int count_of_t)
     {
-        int trash = 0;
         int count_of_possible;
         //int next_point_index;
 
@@ -654,7 +616,7 @@ public:
                 arr_of_land_points[count_of_land - 1] = possible_points[next_point_index];
             }
             arr_of_p[count_of_t] = possible_points[next_point_index];
-            trash = number_of_land(lines, arr_of_p, count_of_t + 1);
+            (void)number_of_land(lines, arr_of_p, count_of_t + 1);
             lines[possible_points[next_point_index].i][possible_points[next_point_index].j] = temp;
         }
         delete[] possible_points;
@@ -663,7 +625,6 @@ public:
     }
     int number_of_land_complitely(char** lines)
     {
-        int trash = 0;
         int maxx = 0;
         for (int i = 1; i < 9; i++)
         {
@@ -683,7 +644,7 @@ public:
                         arr_of_land_points[k].i = -1;
                         arr_of_land_points[k].j = -1;
                     }
-                    trash = number_of_land(lines, arr_of_p, count_of_t);
+                    (void)number_of_land(lines, arr_of_p, count_of_t);
                     delete[] arr_of_p;
                     if (count_of_land > maxx) maxx = count_of_land;
                 }
@@ -693,7 +654,6 @@ public:
     }
     bool create_river(char** lines, point* river, int count_of_river) // �������� ������� �� ����� ���������� ������ � �� ����������������
     {
-        int trash = 0;
 
         if (count_of_river == number_of_river) // ������� ����, ��� ���� ��������� � ��������� �� ������� ��������� (�����������)
         {
@@ -734,8 +694,6 @@ public:
 
         }
         int count_of_possible;
-        int next_river_point_index;
-
         point* possible_points = new point[3]; // ����������� ��������� ������, ���� ������ ����� ���� ����
         count_of_possible = 0;
         if (river[count_of_river - 1].j + 1 <= 8)
@@ -785,7 +743,7 @@ public:
             lines[possible_points[next_river_point_index].i][possible_points[next_river_point_index].j] = 'r';
             // visual_lab(lines); ����� ������ ��� �������� ����
             river[count_of_river] = possible_points[next_river_point_index];
-            trash = create_river(lines, river, count_of_river + 1);
+            (void)create_river(lines, river, count_of_river + 1);
             lines[possible_points[next_river_point_index].i][possible_points[next_river_point_index].j] = '.';
         }
         delete[] possible_points;
@@ -1063,7 +1021,6 @@ public:
         char** lines = init_arr();
         tries = 0;
         int NumberOfLand_i = 100;
-        int count = 0;
         do
         {
             if (tries != 0)
@@ -1266,7 +1223,7 @@ public:
                     ans += "The wall exploded\n";
                     ans += "You have " + to_string((*player).granade) + "grenades left\n";
                     lines[i - 1][j] = 'c';
-                    textures[i - 1][j].loadFromFile("Textures/Breaked_Boom.png");
+                    (void)textures[i - 1][j].loadFromFile("Textures/Breaked_Boom.png");
                     return ans;
                 }
             }
@@ -1286,7 +1243,7 @@ public:
                     ans += "The wall exploded\n";
                     ans += "You have " + to_string((*player).granade) + "grenades left\n";
                     lines[i + 1][j] = 'c';
-                    textures[i + 1][j].loadFromFile("Textures/Breaked_Boom.png");
+                    (void)textures[i + 1][j].loadFromFile("Textures/Breaked_Boom.png");
                     return ans;
                 }
             }
@@ -1306,7 +1263,7 @@ public:
                     ans += "The wall exploded\n";
                     ans += "You have " + to_string((*player).granade) + "grenades left\n";
                     lines[i][j - 1] = 'c';
-                    textures[i][j - 1].loadFromFile("Textures/Breaked_Boom.png");
+                    (void)textures[i][j - 1].loadFromFile("Textures/Breaked_Boom.png");
                     return ans;
                 }
             }
@@ -1326,7 +1283,7 @@ public:
                     ans += "The wall exploded\n";
                     ans += "You have " + to_string((*player).granade) + "grenades left\n";
                     lines[i][j + 1] = 'c';
-                    textures[i][j + 1].loadFromFile("Textures/Breaked_Boom.png");
+                    (void)textures[i][j + 1].loadFromFile("Textures/Breaked_Boom.png");
                     return ans;
                 }
             }
@@ -1341,42 +1298,20 @@ public:
 
         while (command_changed == 0)
         {
+            std::this_thread::sleep_for(std::chrono::milliseconds(16));
 
             Button_Pressed(window, text);
             while (const std::optional event = window.pollEvent())
             {
-                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Scan::Right))
+                if (event->is<sf::Event::Closed>()) { window.close(); return; }
+                if (const auto* kp = event->getIf<sf::Event::KeyPressed>())
                 {
-                    command = "Right";
-                    command_changed = 1;
-                }
-
-                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Scan::Left))
-                {
-                    command = "Left";
-                    command_changed = 1;
-                }
-
-                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Scan::Down))
-                {
-                    command = "Down";
-                    command_changed = 1;
-                }
-
-                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Scan::Up))
-                {
-                    command = "Up";
-                    command_changed = 1;
-                }
-                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Scan::F))
-                {
-                    command = "Shoot";
-                    command_changed = 1;
-                }
-                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Scan::E))
-                {
-                    command = "Explode";
-                    command_changed = 1;
+                    if (kp->scancode == sf::Keyboard::Scan::Right)  { command = "Right";   command_changed = 1; }
+                    if (kp->scancode == sf::Keyboard::Scan::Left)   { command = "Left";    command_changed = 1; }
+                    if (kp->scancode == sf::Keyboard::Scan::Down)   { command = "Down";    command_changed = 1; }
+                    if (kp->scancode == sf::Keyboard::Scan::Up)     { command = "Up";      command_changed = 1; }
+                    if (kp->scancode == sf::Keyboard::Scan::F)      { command = "Shoot";   command_changed = 1; }
+                    if (kp->scancode == sf::Keyboard::Scan::E)      { command = "Explode"; command_changed = 1; }
                 }
             }
         }
@@ -1386,48 +1321,47 @@ public:
     }
     string getCommandString(sf::RenderWindow& window, sf::Text& text)
     {
-
         bool trig = 1;
         string ans = "";
-        char add = 'f';
         while (trig == 1)
         {
+            // Небольшая задержка чтобы не грузить CPU на 100% и не дублировать символы
+            std::this_thread::sleep_for(std::chrono::milliseconds(16));
 
             Button_Pressed(window, text);
             while (const std::optional event = window.pollEvent())
             {
+                if (event->is<sf::Event::Closed>()) { window.close(); return ans; }
+                // TextEntered — единственный правильный способ получить символ.
+                // Он срабатывает ровно один раз на каждое нажатие (с учётом OS-repeat),
+                // поэтому дублирования не будет.
                 if (const auto* textEntered = event->getIf<sf::Event::TextEntered>())
                 {
-                    if (textEntered->unicode < 128 and textEntered->unicode != 13 and textEntered->unicode != 8) // �������� ��� ��� ������ �� Enter � �� Backspace
+                    uint32_t unicode = textEntered->unicode;
+                    if (unicode == 8) // Backspace
                     {
-                        add = static_cast<char>(textEntered->unicode);
+                        if (!ans.empty())
+                        {
+                            ans.pop_back();
+                            string temp = "";
+                            temp += text.getString();
+                            if (!temp.empty()) temp.pop_back();
+                            text.setString(temp);
+                            WindowClearDrawDisplay(window, text);
+                        }
+                    }
+                    else if (unicode == 13) // Enter
+                    {
+                        trig = 0;
+                        text.setString(text.getString() + '\n');
+                        WindowClearDrawDisplay(window, text);
+                    }
+                    else if (unicode < 128) // Обычный ASCII-символ
+                    {
+                        char add = static_cast<char>(unicode);
                         ans += add;
                         text.setString(text.getString() + add);
                         WindowClearDrawDisplay(window, text);
-                    }
-                }
-                if (const auto* keyPressed = event->getIf<sf::Event::KeyPressed>())
-                {
-                    if (keyPressed->scancode == sf::Keyboard::Scan::Enter)
-                    {
-                        add = '\n';
-                        trig = 0;
-                        text.setString(text.getString() + add);
-                        WindowClearDrawDisplay(window, text);
-                    }
-                    if (keyPressed->scancode == sf::Keyboard::Scan::Backspace)
-                    {
-                        if (ans != "")
-                        {
-                            ans.pop_back();
-
-                            string temp = "";
-                            temp += text.getString();
-                            temp.pop_back();
-                            text.setString(temp);
-
-                            WindowClearDrawDisplay(window, text);
-                        }
                     }
                 }
             }
@@ -1437,18 +1371,22 @@ public:
     }
     string getDirection(sf::RenderWindow& window, sf::Text& text)
     {
-
         string ans = "";
         while (ans == "")
         {
+            std::this_thread::sleep_for(std::chrono::milliseconds(16));
 
             Button_Pressed(window, text);
             while (const std::optional event = window.pollEvent())
             {
-                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Scan::Right)) ans = "Right";
-                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Scan::Left)) ans = "Left";
-                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Scan::Down)) ans = "Down";
-                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Scan::Up)) ans = "Up";
+                if (event->is<sf::Event::Closed>()) { window.close(); return ans; }
+                if (const auto* kp = event->getIf<sf::Event::KeyPressed>())
+                {
+                    if (kp->scancode == sf::Keyboard::Scan::Right) ans = "Right";
+                    if (kp->scancode == sf::Keyboard::Scan::Left)  ans = "Left";
+                    if (kp->scancode == sf::Keyboard::Scan::Down)  ans = "Down";
+                    if (kp->scancode == sf::Keyboard::Scan::Up)    ans = "Up";
+                }
             }
         }
 
@@ -1462,11 +1400,6 @@ public:
         command_changed = 0;
 
 
-        int trash = 0;
-        char temp_1;
-        char temp_2;
-        char temp_3;
-        char temp_4;
         if (pl->turns == 0) // �������
         {
             text.setString(text.getString() + "Select the drop-off field with the mouse\n");
@@ -1542,7 +1475,6 @@ public:
             WindowClearDrawDisplay(window, text);
         }
 
-        bool trig = 0;
         if (command_changed == 0) getCommandToDo(window, text);
 
 
@@ -1905,11 +1837,11 @@ public:
     }
 
 
-    Maze(sf::RenderWindow& window, sf::Text& text, sf::Text& EnteredText)
+    Maze(sf::RenderWindow& window, sf::Text& text, sf::Text& /*EnteredText*/)
     {
-        font.openFromFile("Fonts/Helvetica.ttf");
-        background.loadFromFile("Textures/Planks.png");
-        ButtonTexture.loadFromFile("Textures/Button.png");
+        (void)font.openFromFile("Fonts/Helvetica.ttf");
+        (void)background.loadFromFile("Textures/Planks.png");
+        (void)ButtonTexture.loadFromFile("Textures/Button.png");
 
         sf::Text ButtonText(font);
         text.setString(text.getString() + "Enter number of players\n");

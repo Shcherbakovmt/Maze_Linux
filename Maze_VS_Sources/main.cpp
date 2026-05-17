@@ -24,7 +24,7 @@ using std::to_string;
 int main()
 {
     sf::Font ft;
-    ft.openFromFile("Fonts/Helvetica.ttf");
+    (void)ft.openFromFile("Fonts/Helvetica.ttf");
     
     sf::RenderWindow window(sf::VideoMode({ 1280, 960 }), "The maze");
 
