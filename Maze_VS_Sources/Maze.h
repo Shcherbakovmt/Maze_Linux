@@ -26,6 +26,18 @@ using std::vector;
 class Maze : public elements, public settings, public technical
 {
 public:
+    // --- Снапшот состояния игры для отмотки ходов назад ---
+    struct GameSnapshot
+    {
+        vector<player> players;
+        crocodile      croc;
+        point          treasure;
+        bool           treasure_picked;
+        // Карта 10×10 (может меняться при взрыве стен)
+        char           lines_snap[10][10];
+        string         log_text; // текст лога на момент снапшота
+    };
+
     vector<player> players;
     sf::Texture background;
     bool TexturesIsDone = 0;
@@ -40,6 +52,47 @@ public:
     sf::Font font;
 
     bool unknown_created = 0;
+    int current_player_idx = -1; // индекс текущего ходящего игрока (-1 = никто)
+
+    // История ходов (максимум 20 снапшотов)
+    static const int MAX_HISTORY = 20;
+    vector<GameSnapshot> history;
+
+    // Сохранить снапшот перед ходом
+    void save_snapshot(const sf::Text& text)
+    {
+        if (static_cast<int>(history.size()) >= MAX_HISTORY)
+            history.erase(history.begin());
+        GameSnapshot snap;
+        snap.players        = players;
+        snap.croc           = croc;
+        snap.treasure       = treasure;
+        snap.treasure_picked = treasure_picked;
+        snap.log_text       = text.getString();
+        for (int i = 0; i < 10; i++)
+            for (int j = 0; j < 10; j++)
+                snap.lines_snap[i][j] = lines[i][j];
+        history.push_back(snap);
+    }
+
+    // Восстановить последний снапшот
+    bool restore_snapshot(sf::Text& text)
+    {
+        if (history.empty()) return false;
+        GameSnapshot& snap = history.back();
+        players          = snap.players;
+        croc             = snap.croc;
+        treasure         = snap.treasure;
+        treasure_picked  = snap.treasure_picked;
+        text.setString(snap.log_text + "[Rewound 1 move]\n");
+        for (int i = 0; i < 10; i++)
+            for (int j = 0; j < 10; j++)
+                lines[i][j] = snap.lines_snap[i][j];
+        // Перестроить текстуры карты по восстановленным lines
+        if (TexturesIsDone) textures = CreateTextures();
+        history.pop_back();
+        return true;
+    }
 
 
     sf::Texture** CreateUnknown()
@@ -91,12 +144,13 @@ public:
         // Не вызываем pollEvent здесь — это "съедало" бы TextEntered/KeyPressed события
         // у вызывающих функций. Closed обрабатывается в их собственных циклах pollEvent.
         sf::Vector2i MousePosition = sf::Mouse::getPosition(window);
-        int winX = static_cast<int>(window.getSize().x);
-        int winY = static_cast<int>(window.getSize().y);
-        if (MousePosition.x > winX - 350 and
-            MousePosition.y > winY - 390 and
-            MousePosition.x < winX - 350 + 290 and
-            MousePosition.y < winY - 390 + 150)
+        // Кнопка теперь расположена правее лога, под картой лабиринта
+        int btnX = static_cast<int>(window.getSize().x * 0.62f) + 10;
+        int btnY = static_cast<int>(scale * 10 * 160.f) + 10;
+        if (MousePosition.x > btnX and
+            MousePosition.y > btnY and
+            MousePosition.x < btnX + 290 and
+            MousePosition.y < btnY + 100)
         {
             if (sf::Mouse::isButtonPressed(sf::Mouse::Button::Left))
             {
@@ -104,11 +158,9 @@ public:
                 else if (show_mase == 0) show_mase = 1;
                 WindowClearDrawDisplay(window, text);
                 while (sf::Mouse::isButtonPressed(sf::Mouse::Button::Left)) { continue; }
-
                 return;
             }
         }
-
     }
 
     point choose_point(sf::RenderWindow& window, sf::Text& text)
@@ -214,27 +266,227 @@ public:
         }
     }
 
+    // Возвращает читаемое название клетки по её символу
+    string tile_name(char c) const
+    {
+        switch (c) {
+            case 'c': return "Land";
+            case 'E': return "Exit";
+            case 'r': return "River";
+            case 's': return "Swamp";
+            case 'u': return "Swamp mouth";
+            case 'A': return "Arsenal";
+            case 'M': return "Med unit";
+            case 'w': return "Wall";
+            case 'b': return "Boom wall";
+            case '1': case '2': case '3': return "Pit";
+            default:  return "?";
+        }
+    }
+
+    // Рисует тёмный прямоугольник с заданной прозрачностью
+    void draw_panel(sf::RenderWindow& window, float x, float y, float w, float h,
+                    sf::Color fill = sf::Color(0, 0, 0, 160),
+                    sf::Color outline = sf::Color(180, 140, 80, 200),
+                    float outline_thickness = 2.f)
+    {
+        sf::RectangleShape panel({w, h});
+        panel.setPosition({x, y});
+        panel.setFillColor(fill);
+        panel.setOutlineColor(outline);
+        panel.setOutlineThickness(outline_thickness);
+        window.draw(panel);
+    }
+
+    // Рисует панель статуса игроков внизу экрана
+    void draw_hud(sf::RenderWindow& window)
+    {
+        if (players.empty()) return;
+
+        const float WIN_W = static_cast<float>(window.getSize().x);
+        const float WIN_H = static_cast<float>(window.getSize().y);
+
+        // Высота HUD-панели и ширина карточки одного игрока
+        const float HUD_H   = 130.f;  // увеличена для строки с клеткой
+        const float HUD_Y   = WIN_H - HUD_H - 8.f;
+        const float CARD_W  = std::min(300.f, (WIN_W * 0.62f) / static_cast<float>(players.size()));
+        const float CARD_PAD = 8.f;
+
+        // Общий фон HUD
+        draw_panel(window, 4.f, HUD_Y, WIN_W * 0.62f - 4.f, HUD_H + 4.f,
+                   sf::Color(20, 15, 10, 200), sf::Color(120, 90, 40, 220), 2.f);
+
+        for (int idx = 0; idx < static_cast<int>(players.size()); idx++)
+        {
+            const player& pl = players[idx];
+            float card_x = 4.f + idx * CARD_W + CARD_PAD;
+            float card_y = HUD_Y + CARD_PAD;
+            float card_inner_w = CARD_W - CARD_PAD * 2.f;
+            float card_inner_h = HUD_H - CARD_PAD * 2.f;
+
+            // Карточка игрока — подсвечиваем текущего
+            bool is_current = (idx == current_player_idx);
+            sf::Color card_fill  = is_current ? sf::Color(60, 40, 10, 210) : sf::Color(30, 20, 5, 180);
+            sf::Color card_border = is_current ? sf::Color(255, 200, 50, 255) : sf::Color(100, 75, 30, 180);
+            float border_w = is_current ? 3.f : 1.f;
+            draw_panel(window, card_x, card_y, card_inner_w, card_inner_h, card_fill, card_border, border_w);
+
+            float tx = card_x + 8.f;
+            float ty = card_y + 6.f;
+
+            // Имя игрока
+            sf::Text name_text(font);
+            name_text.setCharacterSize(15);
+            string display_name = pl.name;
+            if (display_name.size() > 12) display_name = display_name.substr(0, 11) + "…";
+            if (is_current) display_name = "> " + display_name;
+            name_text.setString(display_name);
+            name_text.setFillColor(is_current ? sf::Color(255, 215, 50) : sf::Color(220, 200, 160));
+            name_text.setPosition({tx, ty});
+            window.draw(name_text);
+            ty += 22.f;
+
+            // HP (красные сердца: ♥ = полное, × = пустое)
+            sf::Text hp_text(font);
+            hp_text.setCharacterSize(14);
+            string hp_str = "HP: ";
+            for (int h = 0; h < 2; h++)
+                hp_str += (h < pl.hp) ? "* " : "- ";
+            hp_text.setString(hp_str);
+            hp_text.setFillColor(pl.hp == 2 ? sf::Color(100, 220, 100) :
+                                 pl.hp == 1 ? sf::Color(230, 170, 50)  :
+                                              sf::Color(200, 60, 60));
+            hp_text.setPosition({tx, ty});
+            window.draw(hp_text);
+            ty += 20.f;
+
+            // Патроны
+            sf::Text bul_text(font);
+            bul_text.setCharacterSize(14);
+            string bul_str = "Bullets: " + to_string(pl.bullets);
+            bul_text.setString(bul_str);
+            bul_text.setFillColor(pl.bullets > 0 ? sf::Color(180, 220, 255) : sf::Color(120, 120, 120));
+            bul_text.setPosition({tx, ty});
+            window.draw(bul_text);
+            ty += 20.f;
+
+            // Гранаты
+            sf::Text gr_text(font);
+            gr_text.setCharacterSize(14);
+            string gr_str  = "Grenades: " + to_string(pl.granade);
+            gr_text.setString(gr_str);
+            gr_text.setFillColor(pl.granade > 0 ? sf::Color(255, 180, 100) : sf::Color(120, 120, 120));
+            gr_text.setPosition({tx, ty});
+            window.draw(gr_text);
+            ty += 20.f;
+
+            // Значок сокровища
+            if (pl.with_treasure)
+            {
+                sf::Text tr_text(font);
+                tr_text.setCharacterSize(13);
+                tr_text.setString("[HAS TREASURE]");
+                tr_text.setFillColor(sf::Color(255, 230, 0));
+                tr_text.setPosition({tx, ty});
+                window.draw(tr_text);
+                ty += 18.f;
+            }
+
+            // Текущая клетка игрока
+            if (TexturesIsDone && pl.turns > 0 && !player_in_exit(const_cast<player*>(&pl)))
+            {
+                char cell = lines[pl.coord.i][pl.coord.j];
+                string cell_str = "At: " + tile_name(cell);
+                // Цвет в зависимости от типа клетки
+                sf::Color cell_color;
+                switch (cell) {
+                    case 's': case 'u': cell_color = sf::Color(100, 210, 120); break; // болото — зелёный
+                    case 'r':           cell_color = sf::Color(100, 180, 255); break; // река — синий
+                    case 'A':           cell_color = sf::Color(180, 220, 255); break; // арсенал — голубой
+                    case 'M':           cell_color = sf::Color(100, 220, 100); break; // медпункт — зелёный
+                    case 'b':           cell_color = sf::Color(255, 120, 60);  break; // стена-бум — оранжевый
+                    case '1': case '2': case '3':
+                                        cell_color = sf::Color(200, 100, 200); break; // яма — фиолетовый
+                    case 'E':           cell_color = sf::Color(255, 255, 100); break; // выход — жёлтый
+                    default:            cell_color = sf::Color(180, 165, 130); break; // земля — бежевый
+                }
+                sf::Text cell_text(font);
+                cell_text.setCharacterSize(13);
+                cell_text.setString(cell_str);
+                cell_text.setFillColor(cell_color);
+                cell_text.setPosition({tx, ty});
+                window.draw(cell_text);
+            }
+        }
+
+        // Подсказка управления справа от карточек (только во время хода)
+        if (current_player_idx >= 0)
+        {
+            float hint_x = 4.f + players.size() * CARD_W + CARD_PAD * 2.f;
+            float hint_y = HUD_Y + CARD_PAD;
+            float hint_w = WIN_W * 0.62f - hint_x - 4.f;
+            if (hint_w > 60.f)
+            {
+                draw_panel(window, hint_x, hint_y, hint_w, HUD_H - CARD_PAD * 2.f,
+                           sf::Color(15, 15, 30, 180), sf::Color(80, 80, 120, 180), 1.f);
+                sf::Text hint(font);
+                hint.setCharacterSize(13);
+                hint.setString("Arrows - move\nF - shoot\nE - grenade\nZ - undo move");
+                hint.setFillColor(sf::Color(160, 160, 200));
+                hint.setPosition({hint_x + 6.f, hint_y + 6.f});
+                window.draw(hint);
+            }
+        }
+    }
+
+    // Рисует лог-панель (левая половина, над HUD)
+    void draw_log(sf::RenderWindow& window, sf::Text& text)
+    {
+        const float WIN_W = static_cast<float>(window.getSize().x);
+        const float WIN_H = static_cast<float>(window.getSize().y);
+        const float HUD_H = 148.f; // HUD_H (130) + отступы
+        const float LOG_W = WIN_W * 0.62f;
+        const float LOG_H = WIN_H - HUD_H - 8.f;
+
+        // Полупрозрачный тёмный фон как было изначально
+        draw_panel(window, 4.f, 4.f, LOG_W - 8.f, LOG_H,
+                   sf::Color(15, 10, 5, 175), sf::Color(100, 75, 30, 200), 2.f);
+
+        text.setPosition({14.f, 10.f});
+        text.setCharacterSize(16);
+        text.setFillColor(sf::Color(235, 220, 185));
+        window.draw(text);
+    }
+
     void WindowClearDrawDisplay(sf::RenderWindow& window, sf::Text& text)
     {
         trim_text_lines(text, 15);
 
+        // Фон
         sf::Sprite BackgroundSprite(background);
-        BackgroundSprite.setScale({ window.getSize().x / 160 * 1.f ,window.getSize().y / 160 * 1.f }); // size_x = scale * 160
+        BackgroundSprite.setScale({ window.getSize().x / 160.f, window.getSize().y / 160.f });
 
+        // Кнопка "See the maze" — переезжает в правый нижний угол карты
+        const float mazeX = window.getSize().x * 0.62f;
+        const float mazeH = scale * 10 * 160.f;
         sf::Sprite ButtonSprite(ButtonTexture);
-        ButtonSprite.setPosition({ window.getSize().x - 400.f, window.getSize().y - 400.f });
+        ButtonSprite.setPosition({ mazeX + 10.f, mazeH + 10.f });
         sf::Text ButtonText(font);
-        ButtonText.setString("Do you want to \nsee the maze?");
-        ButtonText.setFillColor(sf::Color::Black);
-        ButtonText.setPosition({ window.getSize().x - 350.f, window.getSize().y - 390.f });
+        ButtonText.setCharacterSize(14);
+        ButtonText.setString("Show/hide maze");
+        ButtonText.setFillColor(sf::Color(40, 25, 10));
+        ButtonText.setPosition({ mazeX + 20.f, mazeH + 18.f });
 
-        window.clear();
+        window.clear(sf::Color(30, 20, 10));
         window.draw(BackgroundSprite);
-        window.draw(text);
-        window.draw(ButtonSprite);
-        window.draw(ButtonText);
+
+        draw_log(window, text);
         if (TexturesIsDone and show_mase == 1) draw_lab_SFML(window);
         if (show_mase == 0) draw_unknown_lab(window);
+        draw_hud(window);
+
+        window.draw(ButtonSprite);
+        window.draw(ButtonText);
         window.display();
     }
 
@@ -243,25 +495,31 @@ public:
         trim_text_lines(text, 15);
 
         sf::Sprite BackgroundSprite(background);
-        BackgroundSprite.setScale({ window.getSize().x / 160 * 1.f ,window.getSize().y / 160 * 1.f }); // size_x = scale * 160
+        BackgroundSprite.setScale({ window.getSize().x / 160.f, window.getSize().y / 160.f });
 
+        const float mazeX = window.getSize().x * 0.62f;
+        const float mazeH = scale * 10 * 160.f;
         sf::Sprite ButtonSprite(ButtonTexture);
-        ButtonSprite.setPosition({ window.getSize().x - 400.f, window.getSize().y - 400.f });
+        ButtonSprite.setPosition({ mazeX + 10.f, mazeH + 10.f });
         sf::Text ButtonText(font);
-        ButtonText.setString("Do you want to \nsee the maze?");
-        ButtonText.setFillColor(sf::Color::Black);
-        ButtonText.setPosition({ window.getSize().x - 350.f, window.getSize().y - 390.f });
+        ButtonText.setCharacterSize(14);
+        ButtonText.setString("Show/hide maze");
+        ButtonText.setFillColor(sf::Color(40, 25, 10));
+        ButtonText.setPosition({ mazeX + 20.f, mazeH + 18.f });
 
-        window.clear();
+        window.clear(sf::Color(30, 20, 10));
         window.draw(BackgroundSprite);
-        window.draw(text);
-        window.draw(ButtonSprite);
-        window.draw(ButtonText);
 
+        draw_log(window, text);
         if (TexturesIsDone and show_mase == 1) draw_lab_SFML(window);
+
         int temp = 1;
         for (auto &pl : players) temp *= pl.turns;
         if (unknown_created and show_mase == 0 and temp == 0) draw_unknown_lab(window);
+
+        draw_hud(window);
+        window.draw(ButtonSprite);
+        window.draw(ButtonText);
         window.draw(spr);
         window.display();
     }
@@ -1295,7 +1553,6 @@ public:
 
     void getCommandToDo(sf::RenderWindow& window, sf::Text& text)
     {
-
         while (command_changed == 0)
         {
             std::this_thread::sleep_for(std::chrono::milliseconds(16));
@@ -1312,12 +1569,33 @@ public:
                     if (kp->scancode == sf::Keyboard::Scan::Up)     { command = "Up";      command_changed = 1; }
                     if (kp->scancode == sf::Keyboard::Scan::F)      { command = "Shoot";   command_changed = 1; }
                     if (kp->scancode == sf::Keyboard::Scan::E)      { command = "Explode"; command_changed = 1; }
+                    if (kp->scancode == sf::Keyboard::Scan::Z)
+                    {
+                        // Убираем снапшот текущего хода (он только что был добавлен),
+                        // потом восстанавливаем предыдущий
+                        if (history.size() >= 2)
+                        {
+                            history.pop_back(); // убрать снапшот "до текущего хода"
+                            restore_snapshot(text);
+                        }
+                        else if (history.size() == 1)
+                        {
+                            restore_snapshot(text);
+                        }
+                        WindowClearDrawDisplay(window, text);
+                        // Сигнализируем основному циклу что ход был отменён —
+                        // команда "Undo" вернётся в step(), который просто выйдет
+                        command = "Undo";
+                        command_changed = 1;
+                    }
                 }
             }
         }
-        text.setString(text.getString() + command + '\n');
-        WindowClearDrawDisplay(window, text); // ���������� ���������
-
+        if (command != "Undo")
+        {
+            text.setString(text.getString() + command + '\n');
+            WindowClearDrawDisplay(window, text);
+        }
     }
     string getCommandString(sf::RenderWindow& window, sf::Text& text)
     {
@@ -1458,15 +1736,16 @@ public:
 
 
         if (command_changed == 0) getCommandToDo(window, text);
+        if (command == "Undo") return 1; // ход отменён, выходим без изменений
 
-        if (lines[pl->coord.i][pl->coord.j] == 'M' and pl->turns != 0) // ��� ����� � ���������� - ����� �� ��� ����� �������
+        if (lines[pl->coord.i][pl->coord.j] == 'M' and pl->turns != 0) // медпункт
         {
             pl->hp = 2;
             pl->TimeInSwamp = 0;
             text.setString(text.getString() + "You are absolutely healthy as you have just been in the medical unit.\n");
             WindowClearDrawDisplay(window, text);
         }
-        if (lines[pl->coord.i][pl->coord.j] == 'A' and pl->turns != 0) // ��� ����� � �������� - ����� � ���� ��� ����� ������ ��������
+        if (lines[pl->coord.i][pl->coord.j] == 'A' and pl->turns != 0) // арсенал
         {
             pl->bullets = 3;
             pl->granade = 2;
@@ -1476,6 +1755,7 @@ public:
         }
 
         if (command_changed == 0) getCommandToDo(window, text);
+        if (command == "Undo") return 1; // ход отменён
 
 
         if (command == "Up") pl->coord.i -= 1;
@@ -1916,27 +2196,38 @@ public:
             if (croc.time_to_res == 1) text.setString(text.getString() + "There is 1 turn left in the swamp before the new crocodile appears\n");
             if (croc.time_to_res == 0)
             {
-                if (respawn_new_place) croc = init_croc(); // ����� �������� �.�. ��������� �����
-                if (not(respawn_new_place)) croc.alive = 1; // �������� ������� �� ������� �����
-
+                if (respawn_new_place) croc = init_croc();
+                if (not(respawn_new_place)) croc.alive = 1;
                 text.setString(text.getString() + "There's a new crocodile in the swamp\n");
             }
         }
 
-        for (auto &pl : players)
+        for (int pi = 0; pi < static_cast<int>(players.size()); pi++)
         {
-            text.setString(text.getString() + pl.name + "'s move: ");
+            player& pl = players[pi];
+            current_player_idx = pi;
 
+            // Сохраняем состояние перед ходом — можно будет откатить через Z
+            save_snapshot(text);
+
+            text.setString(text.getString() + pl.name + "'s move: ");
             WindowClearDrawDisplay(window, text);
-            trash = step(&pl, &croc, text, window); // ��� 1 ������
-            
+            trash = step(&pl, &croc, text, window);
+
+            if (command == "Undo")
+            {
+                // Откат уже произошёл внутри step()/getCommandToDo(),
+                // ход не засчитываем — выходим из turn(), основной цикл
+                // вызовет turn() снова с уже восстановленным состоянием
+                current_player_idx = -1;
+                return;
+            }
 
             text.setString(text.getString() + "\n");
             WindowClearDrawDisplay(window, text);
             pl.turns += 1;
-            
-            
         }
+        current_player_idx = -1;
     }
 };
 
